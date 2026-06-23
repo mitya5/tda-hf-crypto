@@ -172,7 +172,8 @@ def main(cfg_path: str = "config.yaml", symbol_filter: str | None = None,
     raw_dir = Path(cfg["data"]["raw_dir"])
     raw_dir.mkdir(parents=True, exist_ok=True)
 
-    exchange = ccxt.binance({"enableRateLimit": True})
+    exchange_id = cfg["data"]["exchange"]   # e.g. "binanceus"
+    exchange = getattr(ccxt, exchange_id)({"enableRateLimit": True})
 
     symbols = cfg["data"]["symbols"]
     if symbol_filter:

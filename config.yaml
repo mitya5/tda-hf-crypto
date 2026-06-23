@@ -1,7 +1,7 @@
 # Locked scope — change only with good reason and document why
 
 data:
-  exchange: binance
+  exchange: binanceus
   symbols:
     - BTC/USDT
     - ETH/USDT
