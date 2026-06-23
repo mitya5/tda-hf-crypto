@@ -145,8 +145,8 @@ def build_features(symbol: str, cfg: dict) -> pd.DataFrame:
     print(f"[{symbol}] Date range: {out.index.min().date()} → {out.index.max().date()}")
     print(f"[{symbol}] rv_target stats:\n{out['rv_target'].describe()}\n")
 
-    out_path = proc_dir / f"{safe_name}_rv_features.parquet"
-    out.to_parquet(out_path, compression="zstd")
+    out_path = proc_dir / f"{safe_name}_rv_features.csv.gz"
+    out.to_csv(out_path, compression="gzip")
     print(f"[{symbol}] Saved → {out_path}")
     return out
 
