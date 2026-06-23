@@ -1,0 +1,56 @@
+# Locked scope — change only with good reason and document why
+
+data:
+  exchange: binance
+  symbols:
+    - BTC/USDT
+    - ETH/USDT
+  timeframe: 1m                    # 1-minute OHLCV bars
+  start_date: "2020-01-01"
+  end_date:   "2023-12-31"
+  raw_dir:  data/raw
+  proc_dir: data/processed
+
+realized_vol:
+  subsampling_freq: 5              # minutes — classic 5-min compromise against microstructure noise
+  estimator: yang_zhang            # noise-robust estimator (handles overnight gaps cleanly in crypto too)
+  forecast_horizon: 30             # minutes ahead for target RV
+
+har:
+  lags:
+    short:  [1, 5]                 # 1–5 min lags → "daily" component
+    medium: [6, 30]                # 6–30 min lags → "weekly" component
+    long:   [31, 480]              # 31–480 min lags → "monthly" component
+
+tda:
+  embedding_dim: 3
+  embedding_delay: 1               # lag in bars; tune in notebooks
+  window_size: 60                  # minutes of returns per sliding window
+  step_size: 5                     # minutes between windows
+  max_homology_dim: 1              # H0 + H1 only (H2 is stretch goal)
+  persistence_features:
+    - landscape_norm_h0
+    - landscape_norm_h1
+    - wasserstein_dist             # distance between consecutive diagrams (Souto's key feature)
+    - persistence_entropy_h0
+    - persistence_entropy_h1
+    - max_persistence_h1
+
+evaluation:
+  train_start: "2020-01-01"
+  oos_start:   "2022-01-01"        # ~2 years train, ~2 years OOS
+  step_size: 30                    # walk-forward re-fit every 30 days
+  loss_functions:
+    - qlike                        # proper loss for volatility
+    - mse_log_rv                   # MSE on log(RV)
+
+turbulent_periods:
+  - name: may_2021_crash
+    start: "2021-05-12"
+    end:   "2021-05-27"
+  - name: ftx_collapse
+    start: "2022-11-07"
+    end:   "2022-11-16"
+  - name: luna_crash
+    start: "2022-05-08"
+    end:   "2022-05-15"
