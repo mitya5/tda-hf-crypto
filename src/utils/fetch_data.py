@@ -21,6 +21,7 @@ Notes
 
 import argparse
 import os
+import sys
 import time
 from pathlib import Path
 
@@ -32,6 +33,10 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+
+# Allow `python src/utils/fetch_data.py` to find the sibling cleaning module.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from src.utils.cleaning import clean_ohlc_spikes
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -121,7 +126,7 @@ def clean_ohlcv(df: pd.DataFrame, symbol: str, timeframe: str = "1min") -> pd.Da
 
     df = df.ffill(limit=5)
 
-    # Spike detection on log returns
+    # Spike detection on close-to-close log returns (catches bad close prints).
     log_ret = np.log(df["close"]).diff()
     spike_mask = log_ret.abs() > 0.10
     if spike_mask.any():
@@ -134,6 +139,13 @@ def clean_ohlcv(df: pd.DataFrame, symbol: str, timeframe: str = "1min") -> pd.Da
 
     # Any remaining NaNs (e.g. at very start) → drop
     df = df.dropna(subset=["close"])
+
+    # Repair bad high/low ticks — the close filter above cannot see these, but
+    # the Yang–Zhang RV estimator reads high/low directly, so they must go.
+    df = clean_ohlc_spikes(df)
+    n_clipped = df.attrs.get("n_wicks_clipped", 0)
+    if n_clipped:
+        print(f"[{symbol}] Clipped {n_clipped} bad high/low wick(s).")
 
     return df
 

@@ -59,6 +59,38 @@ python src/utils/fetch_data.py
 python src/utils/build_rv.py
 ```
 
+**Run baselines** (HAR-RV + XGBoost, walk-forward OOS):
+```bash
+python -m src.models.evaluation
+```
+
+---
+
+## Data quality & cleaning
+
+The realized-volatility target is sensitive to two opposite data artifacts, both
+amplified by `binanceus` being far thinner than `binance.com` (used here only
+because `binance.com` is geo-blocked in the US):
+
+1. **Bad high/low ticks.** Single erroneous prints in the high/low column (e.g. a
+   BTC high of \$138,070 while the bar trades at \$28,800) are invisible to a
+   close-to-close return filter but feed straight into the Yang–Zhang estimator,
+   inflating RV 100–1000×. Cleaned by clipping intrabar wicks beyond ±15% of the
+   candle body (`cleaning.wick_threshold`, in `src/utils/cleaning.py`).
+2. **Flat/illiquid bars.** ~50% of ETH 1-min bars have no trade (O=H=L=C), driving
+   RV to exactly 0 → `log(0)` artifacts that dominate MSE-on-log. Handled with a
+   variance noise floor (`realized_vol.rv_floor`, ≈3% annualised vol) applied to
+   the target and all lags before logging.
+
+Together these dropped baseline QLIKE from 2.88→0.64 (BTC) and MSE-on-log from
+2.39→1.11 (ETH). **If you can source `binance.com`, Kraken, or Coinbase data,
+prefer it** — the liquidity is materially better and would reduce reliance on the
+noise floor. The walk-forward harness also purges the forward target horizon from
+each training fold so training labels never overlap the OOS window.
+
+> **Status:** HAR-RV and XGBoost baselines are implemented and validated. The TDA
+> feature pipeline (`src/features/`) is the next milestone and is not yet built.
+
 ---
 
 ## Key References

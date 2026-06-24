@@ -113,6 +113,7 @@ def walk_forward(
     oos_start: str,
     step_days: int = 30,    # re-fit every N days
     min_train_rows: int = 5000,
+    purge_bars: int = 0,    # drop last N train rows (target look-ahead embargo)
 ) -> WalkForwardResult:
     """
     Expanding-window walk-forward evaluation.
@@ -123,12 +124,18 @@ def walk_forward(
       3. Advance the window.
 
     No data from the test window is ever used during fitting.
+
+    PURGING: the RV target at time t looks forward `horizon` bars, so the last
+    few training rows before the test window carry labels that overlap the test
+    period — a subtle look-ahead leak. We drop the final `purge_bars` training
+    rows so no training label peeks into the OOS window (cf. López de Prado's
+    purged cross-validation).
     """
     oos_start_ts = pd.Timestamp(oos_start, tz="UTC")
     step = pd.Timedelta(days=step_days)
 
-    all_preds  = {}
-    all_actual = {}
+    pred_chunks  = []   # list of (index, pred-array) per fold
+    actual_chunks = []
     fold_metrics = []
 
     window_start = oos_start_ts
@@ -137,11 +144,13 @@ def walk_forward(
     total_end = df.index.max()
 
     print(f"  Walk-forward [{model_name} | {symbol}]: "
-          f"OOS {oos_start} → {total_end.date()}, re-fit every {step_days}d")
+          f"OOS {oos_start} → {total_end.date()}, re-fit every {step_days}d, purge {purge_bars} bars")
 
     fold = 0
     while window_start < total_end:
         train_df = df[df.index < window_start]
+        if purge_bars > 0:
+            train_df = train_df.iloc[:-purge_bars]
         test_df  = df[(df.index >= window_start) & (df.index < window_end)]
 
         if len(train_df) < min_train_rows or len(test_df) == 0:
@@ -155,12 +164,11 @@ def walk_forward(
             model.fit(train_df)
 
         preds = model.predict(test_df)
+        rv_t  = test_df["rv_target"].values
 
-        for ts, p, a in zip(test_df.index, preds, test_df["rv_target"].values):
-            all_preds[ts]  = p
-            all_actual[ts] = a
+        pred_chunks.append(pd.Series(preds, index=test_df.index))
+        actual_chunks.append(test_df["rv_target"])
 
-        rv_t = test_df["rv_target"].values
         fold_metrics.append({
             "fold": fold,
             "start": window_start.date(),
@@ -174,8 +182,10 @@ def walk_forward(
         window_start = window_end
         window_end   = window_start + step
 
-    predictions = pd.Series(all_preds,  name="predicted_rv").sort_index()
-    actuals     = pd.Series(all_actual, name="actual_rv").sort_index()
+    predictions = (pd.concat(pred_chunks).sort_index().rename("predicted_rv")
+                   if pred_chunks else pd.Series(dtype=float, name="predicted_rv"))
+    actuals     = (pd.concat(actual_chunks).sort_index().rename("actual_rv")
+                   if actual_chunks else pd.Series(dtype=float, name="actual_rv"))
 
     return WalkForwardResult(
         model_name=model_name,
@@ -208,6 +218,11 @@ def run_baselines(cfg_path: str = "config.yaml",
     step_days       = cfg["evaluation"]["step_size"]
     turbulent       = cfg["turbulent_periods"]
 
+    # Embargo the forward-looking target horizon so training labels never overlap
+    # the OOS window (horizon minutes / subsampling minutes = bars to purge).
+    purge_bars = (cfg["realized_vol"]["forecast_horizon"]
+                  // cfg["realized_vol"]["subsampling_freq"])
+
     all_metrics  = []
     regime_rows  = []
 
@@ -230,7 +245,8 @@ def run_baselines(cfg_path: str = "config.yaml",
 
         for name, factory in models.items():
             result = walk_forward(factory, name, symbol, df,
-                                  oos_start=oos_start, step_days=step_days)
+                                  oos_start=oos_start, step_days=step_days,
+                                  purge_bars=purge_bars)
 
             # Save predictions
             pred_df = pd.DataFrame({
