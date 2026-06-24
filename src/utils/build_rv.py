@@ -20,11 +20,16 @@ Output: data/processed/<SYMBOL>_rv_features.parquet
 """
 
 import argparse
+import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import yaml
+
+# Allow `python src/utils/build_rv.py` to find the sibling cleaning module.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from src.utils.cleaning import clean_ohlc_spikes
 
 
 # ── Vectorized estimator ─────────────────────────────────────────────────────
@@ -48,7 +53,7 @@ def _yz_components(df_5m: pd.DataFrame):
     return rs, log_oc
 
 
-def rolling_yz_rv(df_5m: pd.DataFrame, window: int) -> pd.Series:
+def rolling_yz_rv(df_5m: pd.DataFrame, window: int, floor: float = 0.0) -> pd.Series:
     """
     Vectorized rolling Yang–Zhang RV over `window` bars.
 
@@ -56,6 +61,11 @@ def rolling_yz_rv(df_5m: pd.DataFrame, window: int) -> pd.Series:
         k = 0.34 / (1.34 + (n+1)/(n-1))
     So:
         var_yz = k * rolling_var(log_oc) + (1-k) * rolling_mean(rs)
+
+    `floor` is a variance noise floor: on a thin exchange many bars are flat
+    (no trade), which drives RV to exactly 0 and produces log(0) = -inf
+    downstream. Flooring at a small positive value keeps low-vol regimes while
+    removing those degeneracies.
     """
     if window < 2:
         raise ValueError("window must be >= 2")
@@ -68,11 +78,11 @@ def rolling_yz_rv(df_5m: pd.DataFrame, window: int) -> pd.Series:
     oc_var = log_oc.rolling(window, min_periods=window).var(ddof=1)
     rs_mean = rs.rolling(window, min_periods=window).mean()
 
-    rv = (k * oc_var + (1 - k) * rs_mean).clip(lower=0)
+    rv = (k * oc_var + (1 - k) * rs_mean).clip(lower=floor)
     return rv
 
 
-def forward_yz_rv(df_5m: pd.DataFrame, horizon: int) -> pd.Series:
+def forward_yz_rv(df_5m: pd.DataFrame, horizon: int, floor: float = 0.0) -> pd.Series:
     """
     Forward-looking RV target: RV computed over the NEXT `horizon` bars.
 
@@ -80,7 +90,7 @@ def forward_yz_rv(df_5m: pd.DataFrame, horizon: int) -> pd.Series:
     shift it backward by `horizon` bars — this is equivalent to a strictly
     causal forward window and introduces zero look-ahead.
     """
-    backward = rolling_yz_rv(df_5m, horizon)
+    backward = rolling_yz_rv(df_5m, horizon, floor=floor)
     # shift(-horizon): at time t, the value is the RV of bars [t, t+horizon)
     return backward.shift(-horizon)
 
@@ -102,6 +112,15 @@ def build_features(symbol: str, cfg: dict) -> pd.DataFrame:
     print(f"[{symbol}] Loading 1-min data…")
     df_1m = pd.read_parquet(parquet_in)
 
+    # Repair bad high/low ticks before they reach the high/low-based YZ estimator.
+    # (The fetch-time close filter cannot see these; raw files predate this fix,
+    #  so we clean defensively here too.)
+    wick_thr = cfg.get("cleaning", {}).get("wick_threshold", 0.15)
+    df_1m = clean_ohlc_spikes(df_1m, wick_threshold=wick_thr)
+    n_clipped = df_1m.attrs.get("n_wicks_clipped", 0)
+    if n_clipped:
+        print(f"[{symbol}] Clipped {n_clipped} bad high/low wick(s) (>±{wick_thr:.0%}).")
+
     # Sub-sample to 5-minute bars
     freq = cfg["realized_vol"]["subsampling_freq"]   # 5
     df_5m = df_1m.resample(f"{freq}min", label="right", closed="right").agg(
@@ -115,6 +134,7 @@ def build_features(symbol: str, cfg: dict) -> pd.DataFrame:
 
     horizon_min  = cfg["realized_vol"]["forecast_horizon"]   # 30
     horizon_bars = horizon_min // freq                       # 6
+    rv_floor     = float(cfg["realized_vol"].get("rv_floor", 0.0))
 
     # HAR lag windows (minutes → bars)
     lag_windows = {
@@ -127,15 +147,16 @@ def build_features(symbol: str, cfg: dict) -> pd.DataFrame:
     # Enforce minimum window of 2
     lag_windows = {k: max(v, 2) for k, v in lag_windows.items()}
 
-    print(f"[{symbol}] Computing forward RV target (horizon={horizon_min} min = {horizon_bars} bars)…")
-    rv_target = forward_yz_rv(df_5m, horizon_bars)
+    print(f"[{symbol}] Computing forward RV target (horizon={horizon_min} min = {horizon_bars} bars, floor={rv_floor:.1e})…")
+    rv_target = forward_yz_rv(df_5m, horizon_bars, floor=rv_floor)
 
     print(f"[{symbol}] Computing HAR lag features…")
     features = {"rv_target": rv_target}
     for name, win_bars in lag_windows.items():
-        rv_lag = rolling_yz_rv(df_5m, win_bars)
+        rv_lag = rolling_yz_rv(df_5m, win_bars, floor=rv_floor)
         features[f"rv_lag_{name}"]     = rv_lag
-        features[f"log_rv_lag_{name}"] = np.log(rv_lag.clip(lower=1e-12))
+        # rv_lag is already floored at rv_floor (or 1e-12 fallback) so log is finite.
+        features[f"log_rv_lag_{name}"] = np.log(rv_lag.clip(lower=max(rv_floor, 1e-12)))
 
     out = pd.DataFrame(features, index=df_5m.index)
     out = out.dropna()

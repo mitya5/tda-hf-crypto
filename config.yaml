@@ -1,6 +1,11 @@
 # Locked scope — change only with good reason and document why
 
 data:
+  # NOTE: binanceus is used because binance.com is geo-blocked in the US. It is
+  # far thinner than binance.com — ~50% of ETH 1-min bars are flat (no trade),
+  # which makes 5-min RV degenerate at the low end. We handle this with an RV
+  # noise floor (see realized_vol.rv_floor). If you can source binance.com,
+  # Kraken, or Coinbase data, prefer it: the liquidity is materially better.
   exchange: binanceus
   symbols:
     - BTC/USDT
@@ -11,10 +16,17 @@ data:
   raw_dir:  data/raw
   proc_dir: data/processed
 
+cleaning:
+  wick_threshold: 0.15             # clip 1-min high/low wicks beyond ±15% of the candle body
+                                   # (kills bad single-tick prints the close filter misses)
+
 realized_vol:
   subsampling_freq: 5              # minutes — classic 5-min compromise against microstructure noise
   estimator: yang_zhang            # noise-robust estimator (handles overnight gaps cleanly in crypto too)
   forecast_horizon: 30             # minutes ahead for target RV
+  rv_floor: 1.0e-8                 # variance floor (~3% annualised vol) applied to RV target + lags
+                                   # before logging; prevents flat illiquid bars (RV≈0) from
+                                   # producing log(0) artifacts that dominate MSE-on-log
 
 har:
   lags:
