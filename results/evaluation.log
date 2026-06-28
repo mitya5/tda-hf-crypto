@@ -1,0 +1,86 @@
+
+=== BTC/USDT: 419,914 rows (TDA-augmented, +controls) ===
+  Walk-forward [HAR-RV | BTC/USDT]: OOS 2022-01-01 → 2023-12-31, re-fit every 30d, purge 6 bars
+  HAR-RV      : QLIKE=0.638824  MSE-log=0.724954  n=209,910
+  Walk-forward [XGBoost | BTC/USDT]: OOS 2022-01-01 → 2023-12-31, re-fit every 30d, purge 6 bars
+  XGBoost     : QLIKE=0.652771  MSE-log=0.721951  n=209,910
+  Walk-forward [HAR+TDA | BTC/USDT]: OOS 2022-01-01 → 2023-12-31, re-fit every 30d, purge 6 bars
+  HAR+TDA     : QLIKE=0.599983  MSE-log=0.729790  n=209,910
+  Walk-forward [XGBoost+TDA | BTC/USDT]: OOS 2022-01-01 → 2023-12-31, re-fit every 30d, purge 6 bars
+  XGBoost+TDA : QLIKE=0.607816  MSE-log=0.709229  n=209,910
+  Walk-forward [HAR+RV1 | BTC/USDT]: OOS 2022-01-01 → 2023-12-31, re-fit every 30d, purge 6 bars
+  HAR+RV1     : QLIKE=0.648333  MSE-log=0.721788  n=209,910
+  Walk-forward [XGBoost+RV1 | BTC/USDT]: OOS 2022-01-01 → 2023-12-31, re-fit every 30d, purge 6 bars
+  XGBoost+RV1 : QLIKE=0.661365  MSE-log=0.716541  n=209,910
+  Walk-forward [HAR+RV1+TDA | BTC/USDT]: OOS 2022-01-01 → 2023-12-31, re-fit every 30d, purge 6 bars
+  HAR+RV1+TDA : QLIKE=0.611630  MSE-log=0.721404  n=209,910
+  Walk-forward [XGBoost+RV1+TDA | BTC/USDT]: OOS 2022-01-01 → 2023-12-31, re-fit every 30d, purge 6 bars
+  XGBoost+RV1+TDA: QLIKE=0.608703  MSE-log=0.704474  n=209,910
+  DM [HAR-RV → HAR+TDA]: Δ=+0.03884 (↓ better)  stat=+14.31  p=0.0000  → TDA significantly BETTER
+  DM [XGBoost → XGBoost+TDA]: Δ=+0.04495 (↓ better)  stat=+12.84  p=0.0000  → TDA significantly BETTER
+  DM [HAR-RV → HAR+RV1]: Δ=-0.00951 (↑ worse)  stat=-18.82  p=0.0000  → TDA significantly WORSE
+  DM [XGBoost → XGBoost+RV1]: Δ=-0.00859 (↑ worse)  stat=-6.41  p=0.0000  → TDA significantly WORSE
+  DM [HAR+RV1 → HAR+RV1+TDA]: Δ=+0.03670 (↓ better)  stat=+12.83  p=0.0000  → TDA significantly BETTER
+  DM [XGBoost+RV1 → XGBoost+RV1+TDA]: Δ=+0.05266 (↓ better)  stat=+13.01  p=0.0000  → TDA significantly BETTER
+
+=== ETH/USDT: 420,432 rows (TDA-augmented, +controls) ===
+  Walk-forward [HAR-RV | ETH/USDT]: OOS 2022-01-01 → 2023-12-31, re-fit every 30d, purge 6 bars
+  HAR-RV      : QLIKE=1.034965  MSE-log=1.106503  n=209,999
+  Walk-forward [XGBoost | ETH/USDT]: OOS 2022-01-01 → 2023-12-31, re-fit every 30d, purge 6 bars
+  XGBoost     : QLIKE=1.073320  MSE-log=1.115651  n=209,999
+  Walk-forward [HAR+TDA | ETH/USDT]: OOS 2022-01-01 → 2023-12-31, re-fit every 30d, purge 6 bars
+  HAR+TDA     : QLIKE=0.960785  MSE-log=1.112668  n=209,999
+  Walk-forward [XGBoost+TDA | ETH/USDT]: OOS 2022-01-01 → 2023-12-31, re-fit every 30d, purge 6 bars
+  XGBoost+TDA : QLIKE=0.922271  MSE-log=1.080604  n=209,999
+  Walk-forward [HAR+RV1 | ETH/USDT]: OOS 2022-01-01 → 2023-12-31, re-fit every 30d, purge 6 bars
+  HAR+RV1     : QLIKE=1.029237  MSE-log=1.108182  n=209,999
+  Walk-forward [XGBoost+RV1 | ETH/USDT]: OOS 2022-01-01 → 2023-12-31, re-fit every 30d, purge 6 bars
+  XGBoost+RV1 : QLIKE=1.035951  MSE-log=1.102765  n=209,999
+  Walk-forward [HAR+RV1+TDA | ETH/USDT]: OOS 2022-01-01 → 2023-12-31, re-fit every 30d, purge 6 bars
+  HAR+RV1+TDA : QLIKE=0.959929  MSE-log=1.111145  n=209,999
+  Walk-forward [XGBoost+RV1+TDA | ETH/USDT]: OOS 2022-01-01 → 2023-12-31, re-fit every 30d, purge 6 bars
+  XGBoost+RV1+TDA: QLIKE=0.925892  MSE-log=1.073194  n=209,999
+  DM [HAR-RV → HAR+TDA]: Δ=+0.07418 (↓ better)  stat=+10.69  p=0.0000  → TDA significantly BETTER
+  DM [XGBoost → XGBoost+TDA]: Δ=+0.15105 (↓ better)  stat=+19.20  p=0.0000  → TDA significantly BETTER
+  DM [HAR-RV → HAR+RV1]: Δ=+0.00573 (↓ better)  stat=+7.49  p=0.0000  → TDA significantly BETTER
+  DM [XGBoost → XGBoost+RV1]: Δ=+0.03737 (↓ better)  stat=+14.35  p=0.0000  → TDA significantly BETTER
+  DM [HAR+RV1 → HAR+RV1+TDA]: Δ=+0.06931 (↓ better)  stat=+10.74  p=0.0000  → TDA significantly BETTER
+  DM [XGBoost+RV1 → XGBoost+RV1+TDA]: Δ=+0.11006 (↓ better)  stat=+13.69  p=0.0000  → TDA significantly BETTER
+
+Regime breakdown saved → results/regime_breakdown.csv
+Diebold–Mariano tests saved → results/dm_tests.csv
+Model summary saved → results/model_summary.csv
+
+=== Model Results ===
+          model   symbol  n_obs    qlike  mse_log
+         HAR-RV BTC/USDT 209910 0.638824 0.724954
+        XGBoost BTC/USDT 209910 0.652771 0.721951
+        HAR+TDA BTC/USDT 209910 0.599983 0.729790
+    XGBoost+TDA BTC/USDT 209910 0.607816 0.709229
+        HAR+RV1 BTC/USDT 209910 0.648333 0.721788
+    XGBoost+RV1 BTC/USDT 209910 0.661365 0.716541
+    HAR+RV1+TDA BTC/USDT 209910 0.611630 0.721404
+XGBoost+RV1+TDA BTC/USDT 209910 0.608703 0.704474
+         HAR-RV ETH/USDT 209999 1.034965 1.106503
+        XGBoost ETH/USDT 209999 1.073320 1.115651
+        HAR+TDA ETH/USDT 209999 0.960785 1.112668
+    XGBoost+TDA ETH/USDT 209999 0.922271 1.080604
+        HAR+RV1 ETH/USDT 209999 1.029237 1.108182
+    XGBoost+RV1 ETH/USDT 209999 1.035951 1.102765
+    HAR+RV1+TDA ETH/USDT 209999 0.959929 1.111145
+XGBoost+RV1+TDA ETH/USDT 209999 0.925892 1.073194
+
+=== Diebold–Mariano (TDA vs baseline, QLIKE) ===
+  symbol                    comparison  qlike_base  qlike_tda  mean_diff    dm_stat      p_value                  verdict
+BTC/USDT              HAR-RV → HAR+TDA    0.638824   0.599983   0.038841  14.314084 0.000000e+00 TDA significantly BETTER
+BTC/USDT         XGBoost → XGBoost+TDA    0.652771   0.607816   0.044954  12.842402 0.000000e+00 TDA significantly BETTER
+BTC/USDT              HAR-RV → HAR+RV1    0.638824   0.648333  -0.009509 -18.816857 0.000000e+00  TDA significantly WORSE
+BTC/USDT         XGBoost → XGBoost+RV1    0.652771   0.661365  -0.008594  -6.410611 1.452436e-10  TDA significantly WORSE
+BTC/USDT         HAR+RV1 → HAR+RV1+TDA    0.648333   0.611630   0.036703  12.827864 0.000000e+00 TDA significantly BETTER
+BTC/USDT XGBoost+RV1 → XGBoost+RV1+TDA    0.661365   0.608703   0.052662  13.012118 0.000000e+00 TDA significantly BETTER
+ETH/USDT              HAR-RV → HAR+TDA    1.034965   0.960785   0.074179  10.692413 0.000000e+00 TDA significantly BETTER
+ETH/USDT         XGBoost → XGBoost+TDA    1.073320   0.922271   0.151049  19.197326 0.000000e+00 TDA significantly BETTER
+ETH/USDT              HAR-RV → HAR+RV1    1.034965   1.029237   0.005728   7.489411 6.949996e-14 TDA significantly BETTER
+ETH/USDT         XGBoost → XGBoost+RV1    1.073320   1.035951   0.037369  14.350960 0.000000e+00 TDA significantly BETTER
+ETH/USDT         HAR+RV1 → HAR+RV1+TDA    1.029237   0.959929   0.069308  10.736038 0.000000e+00 TDA significantly BETTER
+ETH/USDT XGBoost+RV1 → XGBoost+RV1+TDA    1.035951   0.925892   0.110059  13.688044 0.000000e+00 TDA significantly BETTER
