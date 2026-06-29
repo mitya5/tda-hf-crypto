@@ -30,7 +30,8 @@ import pandas as pd
 import yaml
 
 from src.features.tda import TDAConfig, compute_tda_features, TDA_FEATURES
-from src.features.controls import add_frequency_controls, CONTROL_FEATURES
+from src.features.controls import (add_frequency_controls, add_robust_controls,
+                                   CONTROL_FEATURES, ROBUST_CONTROL_FEATURES)
 
 
 def build_symbol(symbol: str, cfg: dict, tcfg: TDAConfig,
@@ -60,10 +61,11 @@ def build_symbol(symbol: str, cfg: dict, tcfg: TDAConfig,
         grid = grid[:limit]
 
     print(f"[{symbol}] 1-min source: {parquet}")
-    close = pd.read_parquet(parquet)["close"]
-    if close.index.tz is None:
-        close.index = close.index.tz_localize("UTC")
-    close = close.sort_index()
+    ohlc = pd.read_parquet(parquet)[["open", "high", "low", "close"]]
+    if ohlc.index.tz is None:
+        ohlc.index = ohlc.index.tz_localize("UTC")
+    ohlc = ohlc.sort_index()
+    close = ohlc["close"]
 
     print(f"[{symbol}] computing TDA features for {len(grid):,} bars "
           f"(window={tcfg.window_size}m, m={tcfg.embedding_dim}, tau={tcfg.embedding_delay}, "
@@ -73,10 +75,15 @@ def build_symbol(symbol: str, cfg: dict, tcfg: TDAConfig,
     deg = tda["tda_degenerate"].mean()
     print(f"[{symbol}] degenerate (flat/illiquid) windows: {deg:.1%}")
 
-    # Non-topological 1-min realized-vol controls (to isolate the topology effect).
+    # Non-topological 1-min realized-vol controls (to isolate the topology effect):
+    # plain squared-return RV, plus jump/outlier-robust bipower & realized range.
+    wick = cfg.get("cleaning", {}).get("wick_threshold", 0.15)
     controls = add_frequency_controls(close, grid, ret_clip=tcfg.ret_clip)
+    robust   = add_robust_controls(ohlc, grid, wick_threshold=wick, ret_clip=tcfg.ret_clip)
 
-    out = rv.loc[grid].join(tda, how="left").join(controls, how="left")
+    out = (rv.loc[grid].join(tda, how="left")
+                       .join(controls, how="left")
+                       .join(robust, how="left"))
     # any unexpected gaps in the join → zero-structure, flagged degenerate
     miss = out["tda_degenerate"].isna()
     if miss.any():

@@ -219,6 +219,12 @@ HAR_TDA_EXTRA = ["tda_wass_h1", "tda_pers_entropy_h1", "tda_n_loops_h1", "tda_ma
 # claim is "TDA helps *beyond* a 1-min RV control", tested by HAR+RV1 → HAR+RV1+TDA.
 CONTROL_FEATURES = ["log_rv1_15", "log_rv1_60"]
 
+# Jump/outlier-ROBUST 1-min controls (bipower variation + realized range). The
+# strongest test: hand the baseline the BEST non-topological 1-min volatility
+# estimators — robust to the single freak prints total-persistence-H0 might exploit
+# — and check whether topology STILL adds value (…+RVrob → …+RVrob+TDA).
+ROBUST_CONTROL_FEATURES = ["log_bv1_15", "log_bv1_60", "log_rr1_15", "log_rr1_60"]
+
 
 # ── Runner ────────────────────────────────────────────────────────────────────
 
@@ -269,9 +275,12 @@ def run_evaluation(cfg_path: str = "config.yaml",
             df.index = df.index.tz_localize("UTC")
         tda_cols  = [c for c in TDA_FEATURES if c in df.columns]
         ctrl_cols = [c for c in CONTROL_FEATURES if c in df.columns]
+        rob_cols  = [c for c in ROBUST_CONTROL_FEATURES if c in df.columns]
+        all_ctrl  = ctrl_cols + rob_cols
         print(f"\n=== {symbol}: {len(df):,} rows "
               f"({'TDA-augmented' if tda_cols else 'baseline only'}"
-              f"{', +controls' if ctrl_cols else ''}) ===")
+              f"{', +controls' if ctrl_cols else ''}"
+              f"{', +robust' if rob_cols else ''}) ===")
 
         models = {
             "HAR-RV":  lambda: HARRV(HAR_FEATURES),
@@ -282,15 +291,26 @@ def run_evaluation(cfg_path: str = "config.yaml",
             xgb_tda = HAR_FEATURES + tda_cols
             models["HAR+TDA"]     = lambda f=har_tda: HARRV(f)
             models["XGBoost+TDA"] = lambda f=xgb_tda: XGBBaseline(f)
+            har_tda_extra = [c for c in HAR_TDA_EXTRA if c in tda_cols]
             if ctrl_cols:
                 har_c  = HAR_FEATURES + ctrl_cols
                 xgb_c  = HAR_FEATURES + ctrl_cols
-                har_ct = HAR_FEATURES + ctrl_cols + [c for c in HAR_TDA_EXTRA if c in tda_cols]
+                har_ct = HAR_FEATURES + ctrl_cols + har_tda_extra
                 xgb_ct = HAR_FEATURES + ctrl_cols + tda_cols
                 models["HAR+RV1"]         = lambda f=har_c:  HARRV(f)
                 models["XGBoost+RV1"]     = lambda f=xgb_c:  XGBBaseline(f)
                 models["HAR+RV1+TDA"]     = lambda f=har_ct: HARRV(f)
                 models["XGBoost+RV1+TDA"] = lambda f=xgb_ct: XGBBaseline(f)
+            if rob_cols:
+                # Strongest control: plain + bipower + realized range together.
+                har_r  = HAR_FEATURES + all_ctrl
+                xgb_r  = HAR_FEATURES + all_ctrl
+                har_rt = HAR_FEATURES + all_ctrl + har_tda_extra
+                xgb_rt = HAR_FEATURES + all_ctrl + tda_cols
+                models["HAR+RVrob"]         = lambda f=har_r:  HARRV(f)
+                models["XGBoost+RVrob"]     = lambda f=xgb_r:  XGBBaseline(f)
+                models["HAR+RVrob+TDA"]     = lambda f=har_rt: HARRV(f)
+                models["XGBoost+RVrob+TDA"] = lambda f=xgb_rt: XGBBaseline(f)
 
         results = {}
         for name, factory in models.items():
@@ -314,12 +334,14 @@ def run_evaluation(cfg_path: str = "config.yaml",
         # Diebold–Mariano comparisons (HAC lag = horizon-1). The last two ISOLATE
         # the topology effect by holding the 1-min RV control fixed on both sides.
         dm_pairs = [
-            ("HAR-RV",      "HAR+TDA"),          # naive linear gain (frequency-confounded)
-            ("XGBoost",     "XGBoost+TDA"),      # naive nonlinear gain (frequency-confounded)
-            ("HAR-RV",      "HAR+RV1"),          # pure frequency gain (no topology)
-            ("XGBoost",     "XGBoost+RV1"),      # pure frequency gain (no topology)
-            ("HAR+RV1",     "HAR+RV1+TDA"),      # TOPOLOGY beyond control (linear)
-            ("XGBoost+RV1", "XGBoost+RV1+TDA"),  # TOPOLOGY beyond control (nonlinear) ← key
+            ("HAR-RV",        "HAR+TDA"),            # naive linear gain (frequency-confounded)
+            ("XGBoost",       "XGBoost+TDA"),        # naive nonlinear gain (frequency-confounded)
+            ("HAR-RV",        "HAR+RV1"),            # pure frequency gain (plain 1-min RV)
+            ("XGBoost",       "XGBoost+RV1"),        # pure frequency gain (plain 1-min RV)
+            ("HAR+RV1",       "HAR+RV1+TDA"),        # topology beyond plain control (linear)
+            ("XGBoost+RV1",   "XGBoost+RV1+TDA"),    # topology beyond plain control (nonlinear)
+            ("HAR+RVrob",     "HAR+RVrob+TDA"),      # topology beyond ROBUST control (linear)
+            ("XGBoost+RVrob", "XGBoost+RVrob+TDA"),  # topology beyond ROBUST control (nonlinear) ← key
         ]
         for base, tda in dm_pairs:
             if base not in results or tda not in results:
