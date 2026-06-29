@@ -1,0 +1,11 @@
+[BTC/USDT] 1-min source: data/raw/BTC-USDT_1m.parquet
+[BTC/USDT] computing TDA features for 419,914 bars (window=60m, m=3, tau=1, jobs=8)…
+[BTC/USDT] degenerate (flat/illiquid) windows: 0.8%
+[BTC/USDT] saved → data/processed/BTC-USDT_tda_features.csv.gz  (419,914 rows, 12 TDA cols)
+
+[ETH/USDT] 1-min source: data/raw/ETH-USDT_1m.parquet
+[ETH/USDT] computing TDA features for 420,432 bars (window=60m, m=3, tau=1, jobs=8)…
+[ETH/USDT] degenerate (flat/illiquid) windows: 6.8%
+[ETH/USDT] saved → data/processed/ETH-USDT_tda_features.csv.gz  (420,432 rows, 12 TDA cols)
+
+Done. TDA feature files written to data/processed

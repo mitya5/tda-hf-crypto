@@ -33,12 +33,13 @@ tda-hf-crypto/
 │   ├── raw/          # Downloaded Binance OHLCV parquet files
 │   └── processed/    # Cleaned RV targets + feature matrices
 ├── src/
-│   ├── features/     # TDA feature pipeline (Takens embedding → persistence → vectorization)
-│   ├── models/       # HAR-RV and XGBoost wrappers + walk-forward harness
+│   ├── features/     # TDA pipeline: tda.py (Takens→VR→persistence→vectorization),
+│   │                 #   build_tda.py (feature build), visualize.py (figures)
+│   ├── models/       # HAR-RV, XGBoost, walk-forward harness, significance.py (DM test)
 │   └── utils/        # Data loading, RV estimation, logging
-├── notebooks/        # EDA and results visualization
-├── results/          # Forecast tables, regime breakdowns, significance tests
-└── tests/
+├── results/
+│   └── figures/      # TDA pipeline figures (embedding, diagrams, change-vs-RV, …)
+└── results/          # Forecast tables, regime breakdowns, DM significance tests
 ```
 
 ---
@@ -59,9 +60,20 @@ python src/utils/fetch_data.py
 python src/utils/build_rv.py
 ```
 
-**Run baselines** (HAR-RV + XGBoost, walk-forward OOS):
+**Build TDA features** (causal persistent-homology features from 1-min returns):
+```bash
+python -m src.features.build_tda --jobs 8        # ~2-3 min/symbol on 8 cores
+```
+
+**Run evaluation** (HAR-RV, XGBoost, HAR+TDA, XGBoost+TDA, walk-forward OOS, with
+Diebold–Mariano tests of each TDA model vs its baseline):
 ```bash
 python -m src.models.evaluation
+```
+
+**Generate pipeline figures** (Souto-style: embedding, diagrams, change-vs-RV):
+```bash
+python -m src.features.visualize
 ```
 
 ---
@@ -88,8 +100,34 @@ prefer it** — the liquidity is materially better and would reduce reliance on 
 noise floor. The walk-forward harness also purges the forward target horizon from
 each training fold so training labels never overlap the OOS window.
 
-> **Status:** HAR-RV and XGBoost baselines are implemented and validated. The TDA
-> feature pipeline (`src/features/`) is the next milestone and is not yet built.
+## TDA feature pipeline
+
+`src/features/tda.py` turns each 5-min RV bar into a topological feature vector,
+**strictly causally** (every feature at time *t* uses only 1-min returns in
+*(t−window, t]*, the same convention as the HAR lags, and flows through the same
+walk-forward purge as the target — no look-ahead):
+
+1. **Takens embedding** of the last `window` minutes of **1-minute** log-returns
+   into ℝ³ (the time-series → point-cloud bridge; tune τ, m as noted in config).
+2. **Vietoris–Rips** filtration over ℤ₂ up to H₁ (`ripser`).
+3. **Vectorization** (paper §8): persistence-landscape norms, persistence entropy,
+   max/total persistence, significant-loop counts.
+4. **Topological-change signal** — *p*-Wasserstein / bottleneck distance to the
+   previous window's diagram (Souto's key feature; the Wasserstein-stability
+   theorem justifies it as a stable change detector).
+
+Returns are embedded at **global scale, not per-window** — for volatility the
+return amplitude *is* the signal (Souto-faithful). Whether the topology adds value
+*beyond* the HAR lags is then settled empirically by the **Diebold–Mariano test**
+(`src/models/significance.py`), not assumed.
+
+**High frequency is preserved:** returns are 1-minute and never downsampled; the
+5-min grid only sets where a feature row is emitted. Thin-liquidity flat windows
+(≈55% of ETH 1-min bars) are flagged degenerate and emit zero-structure features
+rather than corrupting the diagrams — no downsampling required.
+
+> **Status:** Baselines + TDA pipeline + DM significance tests + Souto-style
+> figures are implemented. Run `build_tda` → `evaluation` → `visualize`.
 
 ---
 

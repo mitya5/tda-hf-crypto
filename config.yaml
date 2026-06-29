@@ -35,18 +35,24 @@ har:
     long:   [31, 480]              # 31–480 min lags → "monthly" component
 
 tda:
-  embedding_dim: 3
-  embedding_delay: 1               # lag in bars; tune in notebooks
-  window_size: 60                  # minutes of returns per sliding window
-  step_size: 5                     # minutes between windows
+  # HIGH FREQUENCY (locked): the embedding uses 1-MINUTE log-returns and is never
+  # downsampled. step_size=5 only sets where a feature row is emitted (one per 5-min
+  # RV bar). See src/features/tda.py for the full pipeline.
+  embedding_dim: 3                 # m   — delay-embedding dimension (tune via false-nearest-neighbors)
+  embedding_delay: 1               # tau — delay in 1-min bars (tune via mutual information)
+  window_size: 60                  # minutes of 1-min returns per sliding window
+  step_size: 5                     # minutes between windows (= RV grid spacing)
   max_homology_dim: 1              # H0 + H1 only (H2 is stretch goal)
-  persistence_features:
-    - landscape_norm_h0
-    - landscape_norm_h1
-    - wasserstein_dist             # distance between consecutive diagrams (Souto's key feature)
-    - persistence_entropy_h0
-    - persistence_entropy_h1
-    - max_persistence_h1
+  ret_scale: 100.0                 # GLOBAL scale (log-ret → ~percent); preserves cross-window
+                                   #   volatility scale (Souto-faithful), conditions ripser numerics
+  standardize: none                # "none" keeps volatility scale | "zscore" = scale-free (ablation)
+  sig_threshold: 0.10              # min H1 lifetime to count as a "significant" loop
+  min_distinct: 8                  # < this many distinct returns ⇒ degenerate (flat/illiquid) window
+  wasserstein_order: 2             # p in the p-Wasserstein topological-change signal
+  # Emitted feature columns (see TDA_FEATURES in src/features/tda.py):
+  #   tda_wass_h1/h0, tda_bottleneck_h1   — change vs previous diagram (Souto's key feature)
+  #   tda_pers_entropy_h0/h1, tda_n_loops_h1, tda_max/total_pers_*, tda_landscape_l2_h0/h1
+  #   tda_degenerate                       — flat/illiquid-window flag
 
 evaluation:
   train_start: "2020-01-01"
